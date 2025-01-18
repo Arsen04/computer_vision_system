@@ -29,7 +29,10 @@ image_db_folder = "image_db/Person"
 known_face_encodings, known_face_names = load_known_face_encodings(image_db_folder)
 
 cam = cv2.VideoCapture(0)
-face_detect = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+face_detect = cv2.CascadeClassifier('lib/xml_lib/haarcascade_frontalface_default.xml')
+eye_cascade = cv2.CascadeClassifier('lib/xml_lib/haarcascade_eye.xml')
+mouth_cascade = cv2.CascadeClassifier('lib/xml_lib/haarcascade_mcs_mouth.xml')
+smile_cascade = cv2.CascadeClassifier('lib/xml_lib/haarcascade_smile.xml')
 
 while True:
     ret, frame = cam.read()
@@ -40,11 +43,22 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     faces = face_detect.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+    # mouth = mouth_cascade.detectMultiScale(gray, scaleFactor=1.5, minNeighbors=11)
+    smiles = smile_cascade.detectMultiScale(gray, scaleFactor=1.7, minNeighbors=20)
 
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    for (ex, ey, ew, eh) in eyes:
+        cv2.rectangle(frame, (ex, ey), (ex + ew, ey + eh), (0, 0, 255), 2)
+    # for (mx, my, mw, mh) in mouth:
+    #     cv2.rectangle(frame, (mx, my), (mx + mw, my + mh), (255, 0, 0), 2)
 
-    face_locations = face_recognition.face_locations(rgb_frame)
-    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+    if len(smiles) > 0:
+        for (sx, sy, sw, sh) in smiles:
+            cv2.rectangle(frame, (sx, sy), (sx + sw, sy + sh), (0, 255, 255), 2)
+            cv2.putText(frame, 'Smiling', (sx, sy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+
+    face_locations = face_recognition.face_locations(frame)  # Use the color image
+    face_encodings = face_recognition.face_encodings(frame, face_locations)
 
     print(f"Detected {len(face_encodings)} face(s) in the frame.")
 
@@ -70,7 +84,6 @@ while True:
 
         face_names.append('Face Recognized: ' + name)
 
-    # Draw rectangles and labels on recognized faces
     for (x, y, w, h), name in zip(faces, face_names):
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)

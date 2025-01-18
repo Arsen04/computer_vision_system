@@ -39,7 +39,7 @@ class Lib:
 
     @staticmethod
     def keyword_processing(frame):
-        face_detect = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+        face_detect = cv2.CascadeClassifier('lib/xml_lib/haarcascade_frontalface_default.xml')
         faces = face_detect.detectMultiScale(frame, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
         for (x, y, w, h) in faces:
@@ -51,7 +51,7 @@ class Lib:
 
     @staticmethod
     def capturing_image(directory, vid):
-        face_detect = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+        face_detect = cv2.CascadeClassifier('lib/xml_lib/haarcascade_frontalface_default.xml')
 
         img_counter = 0
         total_images = 30
