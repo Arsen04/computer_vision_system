@@ -1,2 +1,4 @@
 /image_db/Person/*
 /image_db/Emotion/Smile/*
+/.venv/
+/.idea/
