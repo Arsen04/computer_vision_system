@@ -12,7 +12,6 @@ def load_known_face_encodings(user_folder):
             for image_file in os.listdir(user_folder_path):
                 image_path = os.path.join(user_folder_path, image_file)
                 image = face_recognition.load_image_file(image_path)
-
                 face_encodings = face_recognition.face_encodings(image)
 
                 if face_encodings:
@@ -25,14 +24,19 @@ def load_known_face_encodings(user_folder):
     return known_face_encodings, known_face_names
 
 image_db_folder = "image_db/Person"
-
 known_face_encodings, known_face_names = load_known_face_encodings(image_db_folder)
 
 cam = cv2.VideoCapture(0)
 face_detect = cv2.CascadeClassifier('lib/xml_lib/haarcascade_frontalface_default.xml')
 eye_cascade = cv2.CascadeClassifier('lib/xml_lib/haarcascade_eye.xml')
-mouth_cascade = cv2.CascadeClassifier('lib/xml_lib/haarcascade_mcs_mouth.xml')
 smile_cascade = cv2.CascadeClassifier('lib/xml_lib/haarcascade_smile.xml')
+
+frame_count = 0
+process_every_n_frames = 15
+
+face_locations = []
+face_encodings = []
+face_names = []
 
 while True:
     ret, frame = cam.read()
@@ -43,55 +47,56 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     faces = face_detect.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-    eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-    # mouth = mouth_cascade.detectMultiScale(gray, scaleFactor=1.5, minNeighbors=11)
-    smiles = smile_cascade.detectMultiScale(gray, scaleFactor=1.7, minNeighbors=20)
+    for (x, y, w, h) in faces:
+        face_image = frame[y:y + h, x:x + w]
+        small_face = cv2.resize(face_image, (0, 0), fx=0.25, fy=0.25)
+        rgb_small_face = cv2.cvtColor(small_face, cv2.COLOR_BGR2RGB)
 
-    for (ex, ey, ew, eh) in eyes:
-        cv2.rectangle(frame, (ex, ey), (ex + ew, ey + eh), (0, 0, 255), 2)
-    # for (mx, my, mw, mh) in mouth:
-    #     cv2.rectangle(frame, (mx, my), (mx + mw, my + mh), (255, 0, 0), 2)
+    # eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+    # smiles = smile_cascade.detectMultiScale(gray, scaleFactor=1.7, minNeighbors=20)
 
-    if len(smiles) > 0:
-        for (sx, sy, sw, sh) in smiles:
-            cv2.rectangle(frame, (sx, sy), (sx + sw, sy + sh), (0, 255, 255), 2)
-            cv2.putText(frame, 'Smiling', (sx, sy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+    # for (ex, ey, ew, eh) in eyes:
+    #     cv2.rectangle(frame, (ex, ey), (ex + ew, ey + eh), (0, 0, 255), 2)
+    #
+    # for (sx, sy, sw, sh) in smiles:
+    #     cv2.rectangle(frame, (sx, sy), (sx + sw, sy + sh), (0, 255, 255), 2)
+    #     cv2.putText(frame, 'Smiling', (sx, sy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
-    face_locations = face_recognition.face_locations(frame)  # Use the color image
-    face_encodings = face_recognition.face_encodings(frame, face_locations)
+    if frame_count % process_every_n_frames == 0:
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
 
-    print(f"Detected {len(face_encodings)} face(s) in the frame.")
+        face_locations = face_recognition.face_locations(rgb_small_frame, model='hog')
+        face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+        face_names = []
 
-    face_names = []
-
-    for face_encoding in face_encodings:
-        if known_face_encodings:
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-
-            print(f"Face distances: {face_distances}")
-
-            if face_distances.size > 0:
-                best_match_index = face_distances.argmin()
-                if matches[best_match_index]:
-                    name = known_face_names[best_match_index]
-                else:
-                    name = "Unknown"
-            else:
-                name = "Unknown"
-        else:
+        for face_encoding in face_encodings:
             name = "Unknown"
+            if known_face_encodings:
+                matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+                face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
 
-        face_names.append('Face Recognized: ' + name)
+                if len(face_distances) > 0:
+                    best_match_index = face_distances.argmin()
+                    if matches[best_match_index]:
+                        name = known_face_names[best_match_index]
+            face_names.append("Face Recognized: " + name)
 
-    for (x, y, w, h), name in zip(faces, face_names):
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    for (top, right, bottom, left), name in zip(face_locations, face_names):
+        top *= 4
+        right *= 4
+        bottom *= 4
+        left *= 4
+
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+        cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     cv2.imshow("Face Recognition", frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
+    frame_count += 1
 
 cam.release()
 cv2.destroyAllWindows()
